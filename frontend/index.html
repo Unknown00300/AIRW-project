@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Search Page</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+  }
+  .container {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 0 20px;
+  }
+  .search-container {
+    margin-bottom: 20px;
+  }
+  .search-input {
+    padding: 10px;
+    width: 70%;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+  }
+  .search-btn {
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .search-btn:hover {
+    background-color: #0056b3;
+  }
+  .result-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-gap: 20px;
+  }
+  .result-item {
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 10px;
+  }
+  .result-item img {
+    max-width: 100%;
+    height: auto;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="search-container">
+    <input type="text" class="search-input" id="query" placeholder="Enter your search query">
+    <button class="search-btn" onclick="search()">Search</button>
+  </div>
+
+  <div class="result-container" id="result-container">
+    <!-- Results will be displayed here -->
+  </div>
+</div>
+
+<script>
+  function search() {
+    var query = document.getElementById("query").value;
+    var requestData = { query: query };
+
+    fetch('http://127.0.0.1:5000/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+      displayResults(data.results);
+    })
+    .catch(error => console.error('Error:', error));
+  }
+
+  function displayResults(results) {
+    var resultContainer = document.getElementById("result-container");
+    resultContainer.innerHTML = '';
+
+    results.forEach(result => {
+      var resultItem = document.createElement("div");
+      resultItem.classList.add("result-item");
+
+      var image = document.createElement("img");
+      image.src = "http:" + result.image_link;
+      image.alt = result.name;
+
+      var name = document.createElement("h3");
+      name.textContent = result.name;
+
+      var location = document.createElement("p");
+      location.textContent = "Location: " + result.location;
+
+      var year = document.createElement("p");
+      year.textContent = "Year: " + result.year;
+
+      var criteria = document.createElement("p");
+      criteria.textContent = "Criteria: " + result.criteria;
+
+      var description = document.createElement("p");
+      description.textContent = result.description;
+
+      resultItem.appendChild(image);
+      resultItem.appendChild(name);
+      resultItem.appendChild(location);
+      resultItem.appendChild(year);
+      resultItem.appendChild(criteria);
+      resultItem.appendChild(description);
+
+      resultContainer.appendChild(resultItem);
+    });
+  }
+</script>
+
+</body>
+</html>

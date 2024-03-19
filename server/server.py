@@ -1,9 +1,10 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request   
 import requests
+from flask_cors import CORS
 from bs4 import BeautifulSoup
 
 app = Flask(__name__)
-
+CORS(app) 
 def get_world_heritage_sites():
     # Define the URL of the Wikipedia page
     url = "https://en.wikipedia.org/wiki/List_of_World_Heritage_Sites_in_India"
