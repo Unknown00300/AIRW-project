@@ -1,7 +1,16 @@
+# Integrated CORS in backend and connected and designed a minimalistic frontend.
+
+
 from flask import Flask, jsonify, request   
 import requests
 from flask_cors import CORS
 from bs4 import BeautifulSoup
+from whoosh.index import create_in
+from whoosh.fields import *
+import os
+from whoosh.qparser import QueryParser
+from whoosh.index import open_dir
+import json
 
 app = Flask(__name__)
 CORS(app) 
@@ -23,14 +32,29 @@ def get_world_heritage_sites():
 
             # Find all table rows
             rows = table.find_all('tr')
+            # Define schema for the index
+            schema = Schema(
+                name=TEXT(stored=True),
+                location=TEXT(stored=True),
+                year=TEXT(stored=True),
+                criteria=TEXT(stored=True),
+                description=TEXT(stored=True),
+                image_link=TEXT(stored=True)
+            )
+
+            # Create a directory named "indexdir" for the index
+            if not os.path.exists("indexdir"):
+                os.mkdir("indexdir")
+
+            # Create index
+            ix = create_in("indexdir", schema)
             
-            # Iterate over each row
+            # Get the writer
+            writer = ix.writer()  
+            # Add each site to the index
             for row in rows:
-                # Find all table data cells in the row
                 cells = row.find_all('td')
                 name_cells = row.find_all('th')
-                print(cells)
-                
                 # Extract and store relevant information from each cell
                 if len(cells) > 0:
                     name = name_cells[0].text.strip()
@@ -38,15 +62,12 @@ def get_world_heritage_sites():
                     year = cells[2].text.strip()
                     criteria = cells[3].text.strip()
                     description = cells[4].text.strip()
-                    
                     # Find the image tag within the cell
                     img_tag = cells[0].find('img')
                     if img_tag:
                         img_link = img_tag['src']
                     else:
                         img_link = None
-                    
-                    # print(img_link)
                     # Add site information to the dictionary with site name as key
                     sites[name] = {
                         'name': name,
@@ -56,7 +77,12 @@ def get_world_heritage_sites():
                         'description': description,
                         'image_link': img_link
                     }
-            
+                    # Add each site to the index
+                    writer.add_document(**sites[name])
+
+            # Commit the changes
+            writer.commit()
+        
             return sites
         
         else:
@@ -70,23 +96,44 @@ def get_world_heritage_sites():
 def search_world_heritage_sites():
     # Get the query from the request body
     query_data = request.json
-    print(query_data)
+    # print(query_data)
     query = query_data.get('query', '').strip().lower()
     print(query)
-    
+
     # Retrieve world heritage sites
     sites = get_world_heritage_sites()
-    
-    if sites:
-        # Search for the query in site names
-        results = [sites[name] for name in sites if query in name.lower()]
-        
-        if results:
-            return jsonify({'results': results})
+    ix = open_dir("indexdir")  # Open the directory that contains the index
+
+    # Create a query parser that searches the 'description' field
+    parser = QueryParser("description", ix.schema)
+
+    # Parse the query string
+    query = parser.parse(query)
+
+    with ix.searcher() as searcher:
+        results = searcher.search(query)
+
+        # Collect the results
+        result_list = []
+        for hit in results:
+            result_list.append({
+                'name': hit['name'],
+                'location': hit['location'],
+                'year': hit['year'],
+                'criteria': hit['criteria'],
+                'description': hit['description'],
+                'image_link': hit['image_link']
+            })
+
+        if result_list:
+
+            return jsonify({'results': result_list})
         else:
             return jsonify({'message': 'No matching results found.'}), 404
-    else:
-        return jsonify({'message': 'Failed to retrieve world heritage sites data.'}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+#handling wrong queries
+#showing similar results based on relevance and tokens of queries
