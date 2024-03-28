@@ -11,9 +11,14 @@ import os
 from whoosh.qparser import QueryParser
 from whoosh.index import open_dir
 import json
+from whoosh.analysis import StandardAnalyzer
 
 app = Flask(__name__)
 CORS(app) 
+
+# Create an analyzer
+analyzer = StandardAnalyzer()
+
 def get_world_heritage_sites():
     # Define the URL of the Wikipedia page
     url = "https://en.wikipedia.org/wiki/List_of_World_Heritage_Sites_in_India"
@@ -32,6 +37,7 @@ def get_world_heritage_sites():
 
             # Find all table rows
             rows = table.find_all('tr')
+
             # Define schema for the index
             schema = Schema(
                 name=TEXT(stored=True),
@@ -39,6 +45,7 @@ def get_world_heritage_sites():
                 year=TEXT(stored=True),
                 criteria=TEXT(stored=True),
                 description=TEXT(stored=True),
+                tokens=TEXT(analyzer=StandardAnalyzer(), stored=True),
                 image_link=TEXT(stored=True)
             )
 
@@ -68,6 +75,13 @@ def get_world_heritage_sites():
                         img_link = img_tag['src']
                     else:
                         img_link = None
+
+                    # Concatenate all details
+                    all_details = f"{name} {location} {year} {criteria} {description}"
+
+                    # Preprocess and tokenize the details
+                    tokens = [token.text for token in analyzer(all_details)]
+
                     # Add site information to the dictionary with site name as key
                     sites[name] = {
                         'name': name,
@@ -75,7 +89,8 @@ def get_world_heritage_sites():
                         'year': year,
                         'criteria': criteria,
                         'description': description,
-                        'image_link': img_link
+                        'image_link': img_link,
+                        'tokens': tokens
                     }
                     # Add each site to the index
                     writer.add_document(**sites[name])
@@ -105,7 +120,7 @@ def search_world_heritage_sites():
     ix = open_dir("indexdir")  # Open the directory that contains the index
 
     # Create a query parser that searches the 'description' field
-    parser = QueryParser("description", ix.schema)
+    parser = QueryParser("tokens", ix.schema)
 
     # Parse the query string
     query = parser.parse(query)
@@ -137,3 +152,6 @@ if __name__ == '__main__':
 
 #handling wrong queries
 #showing similar results based on relevance and tokens of queries
+
+#query preprocessing
+#novelty : integrate api to generate the data about the 
